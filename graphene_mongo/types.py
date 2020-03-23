@@ -74,6 +74,7 @@ class MongoengineObjectTypeOptions(ObjectTypeOptions):
 
 
 class MongoengineObjectType(ObjectType):
+
     @classmethod
     def __init_subclass_with_meta__(
         cls,
@@ -211,3 +212,6 @@ class MongoengineObjectType(ObjectType):
 
     def resolve_id(self, info):
         return str(self.id)
+
+    def __resolve_reference(self, info):
+        return self._meta.model.objects.get(pk=self.id)
