@@ -272,3 +272,4 @@ class MongoengineConnectionField(ConnectionField):
             self.chained_resolver, super_resolver, isinstance(super_resolver, partial)
         )
         return partial(self.connection_resolver, resolver, self.type)
+
