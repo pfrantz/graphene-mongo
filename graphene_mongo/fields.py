@@ -11,7 +11,7 @@ from graphene.relay import ConnectionField
 from graphene.relay.connection import page_info_adapter, connection_adapter
 from graphene.types.argument import to_arguments
 from graphene.types.dynamic import Dynamic
-from graphene.types.structures import Structure
+from graphene.types.structures import Structure, NonNull
 from graphql_relay.connection.arrayconnection import connection_from_array_slice
 
 from .advanced_types import (

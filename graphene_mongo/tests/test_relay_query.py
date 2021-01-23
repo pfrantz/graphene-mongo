@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import base64
@@ -203,68 +204,67 @@ def test_should_query_all_editors(fixtures, fixtures_dirname):
 
 
 def test_should_query_editors_with_dataloader(fixtures):
-    from promise import Promise
-    from promise.dataloader import DataLoader
 
-    class ArticleLoader(DataLoader):
-        def batch_load_fn(self, instances):
-            queryset = models.Article.objects(editor__in=instances)
-            return Promise.resolve(
-                [
-                    [a for a in queryset if a.editor.id == instance.id]
-                    for instance in instances
-                ]
-            )
+    from aiodataloader import DataLoader
 
-    article_loader = ArticleLoader()
+    async def _execute():
 
-    class _EditorNode(MongoengineObjectType):
-        class Meta:
-            model = models.Editor
-            interfaces = (graphene.Node,)
+        async def batch_load_fn(instances):
+            queryset = models.Article.objects(editor__in=[e.id for e in instances])
+            res = [
+                [a for a in queryset if a.editor.id == instance.id]
+                for instance in instances
+            ]
+            return res
 
-        articles = MongoengineConnectionField(nodes.ArticleNode)
+        article_loader = DataLoader(batch_load_fn=batch_load_fn)
 
-        def resolve_articles(self, *args, **kwargs):
-            # TODO: I guess thats cheating. Decide what to do with dataloaders.
-            return article_loader.load(self).get()
+        class _EditorNode(MongoengineObjectType):
+            class Meta:
+                model = models.Editor
+                interfaces = (graphene.Node,)
 
-    class Query(graphene.ObjectType):
-        editors = MongoengineConnectionField(_EditorNode)
+            articles = MongoengineConnectionField(nodes.ArticleNode)
 
-    query = """
-        query EditorPromiseConnectionQuery {
-            editors(first: 1) {
-                edges {
-                    node {
-                        firstName,
-                        articles(first: 1) {
-                            edges {
-                                node {
-                                    headline
+            @staticmethod
+            def resolve_articles(root, *args, **kwargs):
+                return article_loader.load(root)
+
+        class Query(graphene.ObjectType):
+            editors = MongoengineConnectionField(_EditorNode)
+
+        query = """
+            query EditorPromiseConnectionQuery {
+                editors(first: 3) {
+                    edges {
+                        node {
+                            firstName,
+                            articles(first: 1) {
+                                edges {
+                                    node {
+                                        headline
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-    """
+        """
+
+        schema = graphene.Schema(query=Query)
+        return await schema.execute_async(query)
 
     expected = {
-        "editors": {
-            "edges": [
-                {
-                    "node": {
-                        "firstName": "Penny",
-                        "articles": {"edges": [{"node": {"headline": "Hello"}}]},
-                    }
-                }
-            ]
-        }
+        'editors': {'edges': [{'node': {'articles': {'edges': [{'node': {'headline': 'Hello'}}]},
+                                         'firstName': 'Penny'}},
+                               {'node': {'articles': {'edges': [{'node': {'headline': 'World'}}]},
+                                         'firstName': 'Grant'}},
+                               {'node': {'articles': {'edges': []},
+                                         'firstName': 'Dennis'}}]}
     }
-    schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
+
+    result = asyncio.run(_execute())
     assert not result.errors
     assert result.data == expected
 
