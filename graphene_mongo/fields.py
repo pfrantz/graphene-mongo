@@ -5,7 +5,7 @@ from functools import partial, reduce
 
 import graphene
 import mongoengine
-from promise import Promise
+from graphene.utils.thenables import maybe_thenable
 from graphql_relay import from_global_id
 from graphene.relay import ConnectionField
 from graphene.relay.connection import page_info_adapter, connection_adapter
@@ -256,15 +256,13 @@ class MongoengineConnectionField(ConnectionField):
 
     @classmethod
     def connection_resolver(cls, resolver, connection_type, root, info, **args):
-        iterable = resolver(root, info, **args)
-        if isinstance(connection_type, graphene.NonNull):
+        resolved = resolver(root, info, **args)
+
+        if isinstance(connection_type, NonNull):
             connection_type = connection_type.of_type
 
         on_resolve = partial(cls.resolve_connection, connection_type, args)
-        if Promise.is_thenable(iterable):
-            return Promise.resolve(iterable).then(on_resolve)
-
-        return on_resolve(iterable)
+        return maybe_thenable(resolved, on_resolve)
 
     def wrap_resolve(self, parent_resolver):
         super_resolver = self.resolver or parent_resolver

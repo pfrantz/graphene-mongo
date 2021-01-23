@@ -11,3 +11,4 @@ htmlcov/
 *.swo
 *.swp
 
+/venv/
