@@ -3,17 +3,8 @@ from graphene.relay import Node
 
 from . import models
 from . import types  # noqa: F401
+from .. import MongoengineConnectionField
 from ..types import MongoengineObjectType
-
-
-class PublisherNode(MongoengineObjectType):
-    legal_name = graphene.String()
-    bad_field = graphene.String()
-
-    class Meta:
-        model = models.Publisher
-        only_fields = ("id", "name")
-        interfaces = (Node,)
 
 
 class ArticleNode(MongoengineObjectType):
@@ -23,9 +14,25 @@ class ArticleNode(MongoengineObjectType):
 
 
 class EditorNode(MongoengineObjectType):
+    articles = MongoengineConnectionField(ArticleNode)
+
     class Meta:
         model = models.Editor
         interfaces = (Node,)
+
+
+class PublisherNode(MongoengineObjectType):
+    legal_name = graphene.String()
+    bad_field = graphene.String()
+
+    editors = MongoengineConnectionField(EditorNode)
+
+    class Meta:
+        model = models.Publisher
+        only_fields = ("id", "name")
+        interfaces = (Node,)
+
+
 
 
 class EmbeddedArticleNode(MongoengineObjectType):

@@ -766,6 +766,68 @@ def test_should_lazy_reference(fixtures):
     assert result.data == expected
 
 
+def test_one_to_many_reference(fixtures):
+    class Query(graphene.ObjectType):
+        node = Node.Field()
+        companies = MongoengineConnectionField(nodes.PublisherNode)
+
+    schema = graphene.Schema(query=Query)
+
+    query = """
+    query {
+        companies {
+            edges {
+                node {
+                    name
+                    editors {
+                        edges {
+                            node {
+                                firstName,
+                                lastName
+                                articles {
+                                    edges {
+                                        node {
+                                            headline 
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    expected = {
+        'companies':{
+            'edges': [{
+                'node': {
+                    'name': 'Newsco',
+                    'editors': {
+                        'edges': [{
+                            'node': {
+                                'firstName': 'Penny',
+                                'lastName': 'Hardaway',
+                                'articles': {
+                                    'edges': [{
+                                        'node': {'headline': 'Hello'}
+                                    }]
+                                }
+                            }
+                        }]
+                    }
+                }
+            }]
+        }
+    }
+
+    result = schema.execute(query)
+    assert not result.errors
+    assert result.data == expected
+
+
 def test_should_query_with_embedded_document(fixtures):
     class Query(graphene.ObjectType):
 

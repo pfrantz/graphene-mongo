@@ -6,7 +6,7 @@ from functools import partial, reduce
 import graphene
 import mongoengine
 from graphene.utils.thenables import maybe_thenable
-from graphql_relay import from_global_id
+from graphql_relay import from_global_id, to_global_id
 from graphene.relay import ConnectionField
 from graphene.relay.connection import page_info_adapter, connection_adapter
 from graphene.types.argument import to_arguments
@@ -205,7 +205,18 @@ class MongoengineConnectionField(ConnectionField):
         args = args or {}
 
         if _root is not None:
-            args["pk__in"] = [r.pk for r in getattr(_root, info.field_name, [])]
+            if hasattr(_root, info.field_name):
+                args["pk__in"] = [r.pk for r in getattr(_root, info.field_name, [])]
+            else:
+                reference_fields = get_model_reference_fields(self.model)
+                for ref_name, ref_type in reference_fields.items():
+                    if isinstance(_root, ref_type.document_type):
+                        args[ref_name] = to_global_id(info.parent_type.name, _root.pk)
+                        break
+                else:
+                    raise Exception(
+                        "Unable to find a reference for the parent class %s" % _root._cls
+                    )
 
         connection_args = {
             "first": args.pop("first", None),
